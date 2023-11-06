@@ -20,48 +20,38 @@ SOURCE_DIR="/gpfs/scratch/acad/lysmed/data/videos_zip"
 # Source directory changed to destination directory for unzip operation
 DEST_DIR="/gpfs/scratch/acad/lysmed/navi_lstm/data/videos"
 
-# Create destination directory
+# Create destination directory if it does not exist
 mkdir -p "$DEST_DIR"
 
 i=0
-# Loop in zip files
+# Loop over .zip files in the source directory
 for zip_file in "$SOURCE_DIR"/*.zip; do
   ((i++))
   echo "[START] Iteration $i"
-  echo "zip file: $zip_file"
-  if [ -f "$zip_file" ]; then # -f to check if it is a file
-    # Get name of the zip file without extension
-    base_name="$(basename "$zip_file" .zip)" #extract base name without extension
-    echo "Unzipping file: $base_name"
-    
-    # Define folder name where to unzip
-    folder_name="$DEST_DIR/$base_name"
-    echo "Folder will be created: $folder_name"
+  if [ -f "$zip_file" ]; then # Check if it's a file
+    base_name="$(basename "$zip_file" .zip)" # Get the base name without the .zip extension
+    temp_unzip_dir="$DEST_DIR/temp_$base_name" # Temporary directory for unzipping
+    final_unzip_dir="$DEST_DIR/$base_name" # Final directory path
 
-    # Start timer
-    start_time=$(date +%s)
+    echo "Unzipping $zip_file to temporary directory $temp_unzip_dir"
+    mkdir -p "$temp_unzip_dir" # Create temporary directory
+    unzip -q "$zip_file" -d "$temp_unzip_dir" # Unzip to temporary directory
 
-    # Unzip file into the destination directory
-    unzip -q "$zip_file" -d "$folder_name"
-    
-    # End timer and compute duration
-    end_time=$(date +%s)
-    duration=$((end_time - start_time))
-    echo "[TIME] Time taken for unzipping: $duration seconds"
-    
-    # Check if the folder was created successfully
-    if [ -d "$folder_name" ]; then
-      echo "Folder created successfully, removing zip file."
-      # Remove the zip file after unzipping
-      rm "$zip_file"
+    # Move content to the final directory
+    mv "$temp_unzip_dir"/*/* "$final_unzip_dir" # Adjust this depending on the exact internal ZIP structure
+
+    # Check if directory exists and is not empty before deleting temporary directory
+    if [ -d "$final_unzip_dir" ] && [ "$(ls -A "$final_unzip_dir")" ]; then
+      echo "Unzip successful, cleaning up."
+      rm -r "$temp_unzip_dir" # Remove temporary directory
+      rm "$zip_file" # Remove the original zip file after successful extraction
     else
-      echo "Folder was not created, skipping zip file removal."
+      echo "Unzip may have failed - temp directory is missing or empty."
     fi
   else
-    echo "Skipping: $zip_file is not a file"
+    echo "Skipping: $zip_file is not a valid file."
   fi
-  echo "[END] $zip_file done"
-  echo
+  echo "[END] Iteration $i"
 done
 
 echo "Finish unzip"
