@@ -20,9 +20,6 @@ SOURCE_DIR="/gpfs/scratch/acad/lysmed/data/videos_zip"
 # Source directory changed to destination directory for unzip operation
 DEST_DIR="/gpfs/scratch/acad/lysmed/navi_lstm/data/videos"
 
-# Create destination directory if it does not exist
-mkdir -p "$DEST_DIR"
-
 i=0
 # Loop over .zip files in the source directory
 for zip_file in "$SOURCE_DIR"/*.zip; do
@@ -36,18 +33,28 @@ for zip_file in "$SOURCE_DIR"/*.zip; do
     echo "Unzipping $zip_file to temporary directory $temp_unzip_dir"
     mkdir -p "$temp_unzip_dir" # Create temporary directory
     unzip -q "$zip_file" -d "$temp_unzip_dir" # Unzip to temporary directory
-
-    # Move content to the final directory
-    mv "$temp_unzip_dir"/*/* "$final_unzip_dir" # Adjust this depending on the exact internal ZIP structure
-
-    # Check if directory exists and is not empty before deleting temporary directory
-    if [ -d "$final_unzip_dir" ] && [ "$(ls -A "$final_unzip_dir")" ]; then
-      echo "Unzip successful, cleaning up."
-      rm -r "$temp_unzip_dir" # Remove temporary directory
-      rm "$zip_file" # Remove the original zip file after successful extraction
-    else
-      echo "Unzip may have failed - temp directory is missing or empty."
+    
+    # Check if unzip created an additional directory
+    if [ -d "$temp_unzip_dir/$base_name" ]; then
+      # If yes, move out the files from that additional directory
+      mv "$temp_unzip_dir/$base_name"/* "$temp_unzip_dir"
+      # Remove the now empty directory
+      rmdir "$temp_unzip_dir/$base_name"
     fi
+
+    # Ensure the final directory exists
+    mkdir -p "$final_unzip_dir"
+
+    # Move content from the temporary unzip directory to the final directory
+    mv "$temp_unzip_dir"/* "$final_unzip_dir" 
+
+    # Remove the temporary directory if it is empty
+    rmdir "$temp_unzip_dir" 2> /dev/null
+
+    # Remove the zip file after unzipping
+    rm "$zip_file" 
+
+    echo "Unzipped to $final_unzip_dir and original zip file removed."
   else
     echo "Skipping: $zip_file is not a valid file."
   fi
